@@ -171,6 +171,22 @@ export const STORAGE_KEYS = {
 } as const;
 
 // ============================================================================
+// LAYER IDENTIFIERS
+// ============================================================================
+
+/** Layer IDs used throughout the application */
+export const LAYER_IDS = {
+  SOCIODEMOGRAPHICS: 'sociodemographics',
+  RETAIL_STORES: 'retail-stores',
+} as const;
+
+/** Data source type indicators */
+export const DATA_SOURCE_TYPES = {
+  /** Pattern to identify tileset data sources */
+  TILESET_PATTERN: 'tilesets',
+} as const;
+
+// ============================================================================
 // ACCESSIBILITY
 // ============================================================================
 

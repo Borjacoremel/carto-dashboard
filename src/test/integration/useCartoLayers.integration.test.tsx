@@ -152,8 +152,6 @@ describe('useCartoLayers Integration Tests', () => {
         wrapper: createWrapper(),
       });
 
-      const initialLayerCount = result.current.deckLayers.length;
-
       act(() => {
         result.current.setHeatmapEnabled(true);
       });

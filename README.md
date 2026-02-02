@@ -1,73 +1,282 @@
-# React + TypeScript + Vite
+# CARTO Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A production-ready geospatial visualization dashboard built with React 19, deck.gl v9, and CARTO. This application demonstrates modern frontend architecture patterns for rendering large-scale map data with interactive layer controls.
 
-Currently, two official plugins are available:
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)
+![React](https://img.shields.io/badge/React-19-blue)
+![deck.gl](https://img.shields.io/badge/deck.gl-9.2-green)
+![Vite](https://img.shields.io/badge/Vite-6.3-purple)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- **Interactive Map Visualization** - Pan, zoom, and explore US demographic data and retail store locations
+- **Dynamic Layer Styling** - Real-time control of colors, opacity, outlines, and data-driven coloring
+- **Heatmap Toggle** - Switch between point markers and heatmap visualization for density analysis
+- **Responsive Design** - Full desktop sidebar and mobile drawer interface
+- **State Persistence** - Layer styles and view state saved to localStorage
+- **Accessible** - WCAG-compliant with proper ARIA labels and keyboard navigation
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+---
 
-## Expanding the ESLint configuration
+## Architecture
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Hook Composition Pattern
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The application uses a **facade pattern** for state management, composing focused hooks into a unified API:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+useCartoLayers (facade)
+├── useLayerState      → Layer configuration + persistence
+├── useLayerStyles     → Color computation + hex-to-RGBA conversion
+├── useDeckLayers      → deck.gl layer generation (pure transformation)
+└── useHeatmapData     → TanStack Query cached data fetching
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+**Why this pattern?**
+- **Testability**: Each hook can be unit tested in isolation
+- **Single Responsibility**: Clear separation of concerns
+- **Pure Transformations**: `useDeckLayers` has no side effects, making it predictable
+- **Derived State**: Heatmap opacity adjustments computed via `useMemo`, not state mutations
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Project Structure
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+src/
+├── components/
+│   ├── controls/          # Reusable form controls (ColorPicker, Slider, Select)
+│   ├── map/               # Map-related components (MapView, Tooltip, HeatmapToggle)
+│   ├── mobile/            # Mobile-specific components (Drawer, Stats)
+│   └── sidebar/           # Desktop sidebar (LayerControls)
+├── config/
+│   ├── carto.ts           # CARTO API configuration
+│   └── constants.ts       # Centralized constants (no magic numbers)
+├── hooks/
+│   ├── useCartoLayers.tsx # Main facade hook
+│   ├── useLayerState.ts   # State management + localStorage persistence
+│   ├── useLayerStyles.ts  # Color computation logic
+│   ├── useDeckLayers.ts   # deck.gl layer factory
+│   └── useCartoQuery.ts   # TanStack Query data fetching
+├── test/
+│   ├── integration/       # Integration tests
+│   └── utils.tsx          # Test utilities and mocks
+├── types/
+│   └── map.ts             # TypeScript interfaces
+└── utils/
+    └── logger.ts          # Structured logging utility
+```
+
+---
+
+## Technical Decisions
+
+### deck.gl v9 + CARTO Integration
+
+deck.gl v9 introduced breaking changes with luma.gl device initialization. This project resolves the common `maxTextureDimension2D undefined` error by:
+
+1. Strict version synchronization across all `@deck.gl/*` packages
+2. Using `VectorTileLayer` with `binary: true` for optimal performance
+3. Proper `updateTriggers` configuration for React state-driven style updates
+
+### State Management Strategy
+
+| Concern | Solution | Rationale |
+|---------|----------|-----------|
+| Server state | TanStack Query | Caching, background refetch, stale-while-revalidate |
+| UI state | React `useState` | Simple, colocated with components |
+| Persistence | localStorage + debounce | Offline support, 300ms debounce prevents thrashing |
+| Derived state | `useMemo` | Avoids state mutation anti-patterns |
+
+### Why Not Redux/Zustand?
+
+The application's state is:
+- Primarily **server-driven** (handled by TanStack Query)
+- **Component-local** (layer controls affect only the map)
+- **Derivable** (heatmap adjustments computed, not stored)
+
+Adding a global store would increase complexity without benefit.
+
+### Error Handling
+
+```typescript
+// Validation before layer creation
+const validHeatmapData = validateHeatmapData(heatmapData);
+
+// Graceful degradation with logging
+if (!CARTO_CONFIG.accessToken) {
+  logger.error('CARTO access token is missing', { layerId: config.id });
+  return null;
+}
+```
+
+Invalid data is filtered with structured logging for observability.
+
+### Accessibility
+
+- All interactive elements have `aria-label` attributes
+- Expand/collapse buttons use `aria-expanded`
+- Color inputs have proper labels
+- Mobile drawer uses proper focus management
+
+### Testing Strategy
+
+The project implements a **multi-layered testing approach**:
+
+```
+┌─────────────────────────────────────────────────┐
+│           Mutation Testing (Stryker)            │  ← Validates test quality
+├─────────────────────────────────────────────────┤
+│              Integration Tests                   │  ← User flows & hook composition
+├─────────────────────────────────────────────────┤
+│                 Unit Tests                       │  ← Individual hooks & utilities
+└─────────────────────────────────────────────────┘
+```
+
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| **Unit Tests** | Vitest + React Testing Library | Test hooks and components in isolation |
+| **Integration Tests** | Vitest + RTL | Test component interactions and user flows |
+| **Mutation Testing** | Stryker Mutator | Verify test suite catches real bugs |
+
+**Why Stryker Mutation Testing?**
+
+Traditional coverage metrics only show which lines are executed, not whether tests would catch bugs. Stryker introduces small mutations (e.g., `>` → `>=`, `true` → `false`) and verifies tests fail. A high mutation score means tests are actually validating behavior, not just running code.
+
+```bash
+# Run mutation testing
+pnpm test:mutation
+```
+
+**What's Not Included (and Why)**
+
+- **E2E Tests (Playwright/Cypress)**: For a production application, E2E tests would validate the full user journey including map interactions. They were omitted here to focus on demonstrating architecture patterns, but the component structure is E2E-ready.
+- **Visual Regression**: Would be valuable for map styling consistency, but requires CI infrastructure with screenshot comparison.
+
+**Test Utilities**
+
+Centralized test helpers in `src/test/utils.tsx`:
+
+```typescript
+// Render with all providers (QueryClient, Theme)
+renderWithProviders(<Component />);
+
+// Mock responsive breakpoints
+vi.stubGlobal('matchMedia', createMediaQueryMock(false));
+
+// Mock localStorage
+vi.stubGlobal('localStorage', createLocalStorageMock());
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 22.0.0
+- pnpm >= 9.0.0
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd carto-dashboard
+
+# Install dependencies
+pnpm install
+
+# Copy environment variables
+cp .env.example .env
+```
+
+### Environment Variables
+
+Create a `.env` file with your CARTO credentials:
+
+```env
+VITE_CARTO_API_BASE_URL=https://gcp-us-east1.api.carto.com
+VITE_CARTO_ACCESS_TOKEN=your_carto_access_token
+VITE_CARTO_CONNECTION_NAME=carto_dw
+```
+
+### Development
+
+```bash
+# Start development server
+pnpm dev
+
+# Run type checking
+pnpm typecheck
+
+# Run linter
+pnpm lint
+
+# Format code
+pnpm format
+```
+
+### Testing
+
+```bash
+# Run all tests
+pnpm test
+
+# Watch mode
+pnpm test:watch
+
+# With UI
+pnpm test:ui
+
+# Coverage report
+pnpm coverage
+
+# Mutation testing
+pnpm test:mutation
+```
+
+### Production Build
+
+```bash
+# Build for production
+pnpm build
+
+# Preview production build
+pnpm preview
+```
+
+---
+
+## Data Sources
+
+The dashboard visualizes two CARTO datasets:
+
+| Layer | Type | Source |
+|-------|------|--------|
+| US Demographics | Polygon (Tileset) | `sociodemographics_usa_blockgroup` |
+| Retail Stores | Point (Table) | `retail_stores` |
+
+Demographics support color-by-value for `total_pop` and `median_income`.
+Retail stores support color-by-value for `revenue`.
+
+---
+
+## Performance Considerations
+
+- **Binary mode**: `VectorTileLayer` uses binary encoding for 2-3x faster parsing
+- **Memoization**: All deck.gl layers memoized with proper dependency arrays
+- **Debounced persistence**: 300ms debounce on localStorage writes
+- **TanStack Query caching**: 5-10 minute stale times reduce API calls
+- **Web Worker ready**: Heatmap data processing can be offloaded (hook exists)
+
+---
+
+## Browser Support
+
+- Chrome 90+
+- Firefox 90+
+- Safari 15+
+- Edge 90+
+
+Requires WebGL2 support for deck.gl rendering.
+
+---

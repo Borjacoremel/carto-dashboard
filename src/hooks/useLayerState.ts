@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { LayerConfig, LayerStyle } from '../types/map';
-import { STORAGE_KEYS, PERSISTENCE_DEBOUNCE_MS } from '../config/constants';
+import { STORAGE_KEYS, PERSISTENCE_DEBOUNCE_MS, LAYER_IDS } from '../config/constants';
+import { logger } from '../utils/logger';
 
 /**
  * Initial layer configurations.
@@ -8,7 +9,7 @@ import { STORAGE_KEYS, PERSISTENCE_DEBOUNCE_MS } from '../config/constants';
  */
 const INITIAL_LAYERS: LayerConfig[] = [
   {
-    id: 'sociodemographics',
+    id: LAYER_IDS.SOCIODEMOGRAPHICS,
     name: 'US Demographics',
     tableName: 'carto-demo-data.demo_tilesets.sociodemographics_usa_blockgroup',
     type: 'polygon',
@@ -25,7 +26,7 @@ const INITIAL_LAYERS: LayerConfig[] = [
     colorByOptions: ['total_pop', 'median_income'],
   },
   {
-    id: 'retail-stores',
+    id: LAYER_IDS.RETAIL_STORES,
     name: 'Retail Stores',
     tableName: 'carto-demo-data.demo_tables.retail_stores',
     type: 'point',
@@ -87,7 +88,6 @@ function loadPersistedHeatmap(): boolean {
 
 export interface UseLayerStateReturn {
   layerConfigs: LayerConfig[];
-  setLayerConfigs: React.Dispatch<React.SetStateAction<LayerConfig[]>>;
   heatmapEnabled: boolean;
   setHeatmapEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   toggleLayerVisibility: (id: string) => void;
@@ -122,8 +122,11 @@ export function useLayerState(): UseLayerStateReturn {
           stylesToPersist[layer.id] = layer.style;
         });
         window.localStorage.setItem(STORAGE_KEYS.LAYER_STYLES, JSON.stringify(stylesToPersist));
-      } catch {
-        // Storage full or unavailable - fail silently
+        logger.debug('Layer styles persisted', { layerCount: layerConfigs.length });
+      } catch (error) {
+        logger.warn('Failed to persist layer styles', { 
+          error: error instanceof Error ? error.message : String(error) 
+        });
       }
     }, PERSISTENCE_DEBOUNCE_MS);
 
@@ -138,8 +141,10 @@ export function useLayerState(): UseLayerStateReturn {
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEYS.HEATMAP_ENABLED, String(heatmapEnabled));
-    } catch {
-      // Storage unavailable - fail silently
+    } catch (error) {
+      logger.warn('Failed to persist heatmap state', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }, [heatmapEnabled]);
 
@@ -167,7 +172,6 @@ export function useLayerState(): UseLayerStateReturn {
 
   return {
     layerConfigs,
-    setLayerConfigs,
     heatmapEnabled,
     setHeatmapEnabled,
     toggleLayerVisibility,
