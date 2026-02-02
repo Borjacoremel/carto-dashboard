@@ -19,6 +19,31 @@ vi.mock('@deck.gl/carto', () => {
   };
 });
 
+// Mock the HeatmapLayer from aggregation-layers
+vi.mock('@deck.gl/aggregation-layers', () => {
+  class MockHeatmapLayer {
+    id: string;
+    props: Record<string, unknown>;
+    constructor(props: Record<string, unknown>) {
+      this.id = props.id as string;
+      this.props = props;
+    }
+  }
+  return {
+    HeatmapLayer: MockHeatmapLayer,
+  };
+});
+
+// Mock the useHeatmapWorker hook to avoid Worker not defined error
+vi.mock('../../hooks/useHeatmapWorker', () => ({
+  useHeatmapWorker: () => ({
+    data: [],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}));
+
 describe('useCartoLayers', () => {
   describe('Initial State', () => {
     it('should return two layer configs on initialization', () => {

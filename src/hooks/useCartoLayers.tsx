@@ -1,8 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { VectorTileLayer, vectorTableSource, vectorTilesetSource } from '@deck.gl/carto';
+import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import { Layer, type Color } from '@deck.gl/core';
 import { CARTO_CONFIG } from '../config/carto';
-import { type LayerConfig } from '../types/map';
+import { type LayerConfig, type HeatmapPoint } from '../types/map';
+import { useHeatmapWorker } from './useHeatmapWorker';
 
 /**
  * PROFESSIONAL NOTE:
@@ -63,6 +65,46 @@ function hexToRgba(hex: string, alpha: number = 255): Color {
 
 export function useCartoLayers() {
   const [layerConfigs, setLayerConfigs] = useState<LayerConfig[]>(INITIAL_LAYERS);
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  const savedDemographicsOpacity = useRef<number | null>(null);
+
+  // Use Web Worker for heatmap data processing
+  const {
+    data: heatmapData,
+    isLoading: heatmapLoading,
+    error: heatmapError,
+  } = useHeatmapWorker(heatmapEnabled);
+
+  // Handle demographics opacity when heatmap toggles
+  useEffect(() => {
+    if (heatmapEnabled) {
+      // Save current opacity and set to 0
+      const demographicsLayer = layerConfigs.find((l) => l.id === 'sociodemographics');
+      if (demographicsLayer && savedDemographicsOpacity.current === null) {
+        savedDemographicsOpacity.current = demographicsLayer.style.opacity;
+        setLayerConfigs((prev) =>
+          prev.map((layer) =>
+            layer.id === 'sociodemographics'
+              ? { ...layer, style: { ...layer.style, opacity: 0 } }
+              : layer
+          )
+        );
+      }
+    } else {
+      // Restore previous opacity
+      if (savedDemographicsOpacity.current !== null) {
+        const savedOpacity = savedDemographicsOpacity.current;
+        setLayerConfigs((prev) =>
+          prev.map((layer) =>
+            layer.id === 'sociodemographics'
+              ? { ...layer, style: { ...layer.style, opacity: savedOpacity } }
+              : layer
+          )
+        );
+        savedDemographicsOpacity.current = null;
+      }
+    }
+  }, [heatmapEnabled]);
 
   /**
    * Color logic: Implements quantile-based coloring for business data visualization.
@@ -99,12 +141,37 @@ export function useCartoLayers() {
    * Deck.gl Layer Generation: Computes the array of layers for the MapView.
    */
   const deckLayers = useMemo((): Layer[] => {
-    return layerConfigs
+    const layers: Layer[] = [];
+
+    layerConfigs
       .filter((config) => config.style.visible)
-      .map((config) => {
+      .forEach((config) => {
+        // Heatmap mode for point layers - use fetched data
+        if (heatmapEnabled && config.type === 'point' && heatmapData.length > 0) {
+          const heatmapLayer = new HeatmapLayer<HeatmapPoint>({
+            id: `${config.id}-heatmap`,
+            data: heatmapData,
+            getPosition: (d: HeatmapPoint) => d.coordinates,
+            getWeight: (d: HeatmapPoint) => d.weight,
+            radiusPixels: 50,
+            intensity: 1.5,
+            threshold: 0.05,
+            colorRange: [
+              [255, 255, 178],
+              [254, 204, 92],
+              [253, 141, 60],
+              [240, 59, 32],
+              [189, 0, 38],
+            ],
+            pickable: false,
+          });
+          layers.push(heatmapLayer as Layer);
+          return;
+        }
+
         // Determine data source type based on table naming convention
         const isTileset = config.tableName.includes('tilesets');
-        
+
         const sourceConfig = {
           apiBaseUrl: CARTO_CONFIG.apiBaseUrl,
           connectionName: CARTO_CONFIG.connectionName,
@@ -112,11 +179,9 @@ export function useCartoLayers() {
           tableName: config.tableName,
         };
 
-        return new VectorTileLayer({
+        const layer = new VectorTileLayer({
           id: config.id,
-          data: isTileset 
-            ? vectorTilesetSource(sourceConfig) 
-            : vectorTableSource(sourceConfig),
+          data: isTileset ? vectorTilesetSource(sourceConfig) : vectorTableSource(sourceConfig),
           binary: true,
           pickable: true,
           // Styling Accessors
@@ -133,8 +198,12 @@ export function useCartoLayers() {
             getPointRadius: [config.style.radius],
           },
         });
+
+        layers.push(layer as Layer);
       });
-  }, [layerConfigs, getFillColor]);
+
+    return layers;
+  }, [layerConfigs, getFillColor, heatmapEnabled, heatmapData]);
 
   /**
    * UI Actions: Toggles visibility state for the Sidebar controls.
@@ -163,5 +232,9 @@ export function useCartoLayers() {
     layerConfigs,
     toggleLayerVisibility,
     updateLayerStyle,
+    heatmapEnabled,
+    setHeatmapEnabled,
+    heatmapLoading,
+    heatmapError,
   };
 }

@@ -17,3 +17,8 @@ export interface LayerConfig {
   columns: { name: string; type: string }[];
   colorByOptions: string[];
 }
+
+export interface HeatmapPoint {
+  coordinates: [number, number];
+  weight: number;
+}

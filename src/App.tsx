@@ -3,9 +3,17 @@ import { theme } from './theme';
 import { useCartoLayers } from './hooks/useCartoLayers';
 import MapView from './components/map/MapView';
 import { Sidebar } from './components/sidebar/Sidebar';
+import { HeatmapToggle } from './components/map/HeatmapToggle';
 
 function App() {
-  const { deckLayers, layerConfigs, toggleLayerVisibility, updateLayerStyle } = useCartoLayers();
+  const {
+    deckLayers,
+    layerConfigs,
+    toggleLayerVisibility,
+    updateLayerStyle,
+    heatmapEnabled,
+    setHeatmapEnabled,
+  } = useCartoLayers();
 
   return (
     <ThemeProvider theme={theme}>
@@ -19,6 +27,7 @@ function App() {
 
         <Box component="main" sx={{ flexGrow: 1, position: 'relative', bgcolor: '#000' }}>
           <MapView layers={deckLayers} />
+          <HeatmapToggle enabled={heatmapEnabled} onToggle={setHeatmapEnabled} />
         </Box>
       </Box>
     </ThemeProvider>
