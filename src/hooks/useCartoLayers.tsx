@@ -3,8 +3,14 @@ import { VectorTileLayer, vectorTableSource, vectorTilesetSource } from '@deck.g
 import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import { Layer, type Color } from '@deck.gl/core';
 import { CARTO_CONFIG } from '../config/carto';
-import { type LayerConfig, type HeatmapPoint } from '../types/map';
+import { type LayerConfig, type HeatmapPoint, type LayerStyle } from '../types/map';
 import { useHeatmapWorker } from './useHeatmapWorker';
+
+// Storage keys for persistence
+const STORAGE_KEYS = {
+  LAYER_STYLES: 'carto-dashboard:layer-styles',
+  HEATMAP_ENABLED: 'carto-dashboard:heatmap-enabled',
+} as const;
 
 /**
  * PROFESSIONAL NOTE:
@@ -54,6 +60,49 @@ const INITIAL_LAYERS: LayerConfig[] = [
 ];
 
 /**
+ * Load persisted layer styles from localStorage.
+ * Merges with initial layers to handle schema changes.
+ */
+function loadPersistedLayers(): LayerConfig[] {
+  if (typeof window === 'undefined') return INITIAL_LAYERS;
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEYS.LAYER_STYLES);
+    if (!stored) return INITIAL_LAYERS;
+
+    const parsedStyles: Record<string, Partial<LayerStyle>> = JSON.parse(stored);
+
+    // Merge persisted styles with initial layers
+    return INITIAL_LAYERS.map((layer) => {
+      const persistedStyle = parsedStyles[layer.id];
+      if (persistedStyle) {
+        return {
+          ...layer,
+          style: { ...layer.style, ...persistedStyle },
+        };
+      }
+      return layer;
+    });
+  } catch {
+    return INITIAL_LAYERS;
+  }
+}
+
+/**
+ * Load persisted heatmap state from localStorage.
+ */
+function loadPersistedHeatmap(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEYS.HEATMAP_ENABLED);
+    return stored === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Helper: Converts hex string (#ffffff) to a [R, G, B, A] Color tuple 
  * compatible with deck.gl v9 requirements.
  */
@@ -65,8 +114,9 @@ function hexToRgba(hex: string, alpha: number = 255): Color {
 }
 
 export function useCartoLayers() {
-  const [layerConfigs, setLayerConfigs] = useState<LayerConfig[]>(INITIAL_LAYERS);
-  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  // Initialize state from localStorage
+  const [layerConfigs, setLayerConfigs] = useState<LayerConfig[]>(loadPersistedLayers);
+  const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(loadPersistedHeatmap);
   const savedDemographicsOpacity = useRef<number | null>(null);
 
   // Use Web Worker for heatmap data processing
@@ -75,6 +125,41 @@ export function useCartoLayers() {
     isLoading: heatmapLoading,
     error: heatmapError,
   } = useHeatmapWorker(heatmapEnabled);
+
+  // Persist layer styles to localStorage (debounced)
+  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (persistTimeoutRef.current) {
+      clearTimeout(persistTimeoutRef.current);
+    }
+
+    persistTimeoutRef.current = setTimeout(() => {
+      try {
+        const stylesToPersist: Record<string, LayerStyle> = {};
+        layerConfigs.forEach((layer) => {
+          stylesToPersist[layer.id] = layer.style;
+        });
+        window.localStorage.setItem(STORAGE_KEYS.LAYER_STYLES, JSON.stringify(stylesToPersist));
+      } catch {
+        // Storage full or unavailable
+      }
+    }, 300); // Debounce persistence to avoid excessive writes
+
+    return () => {
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+      }
+    };
+  }, [layerConfigs]);
+
+  // Persist heatmap state immediately
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.HEATMAP_ENABLED, String(heatmapEnabled));
+    } catch {
+      // Storage unavailable
+    }
+  }, [heatmapEnabled]);
 
   // Handle demographics opacity when heatmap toggles
   useEffect(() => {

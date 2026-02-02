@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { TooltipInfo } from '../../types/map';
@@ -59,7 +60,7 @@ export function formatKey(key: string): string {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-export function MapTooltip({ tooltip }: MapTooltipProps) {
+export const MapTooltip = memo(function MapTooltip({ tooltip }: MapTooltipProps) {
   if (!tooltip.object || !tooltip.layerId) return null;
 
   const { properties } = tooltip.object as { properties?: Record<string, unknown> };
@@ -122,4 +123,4 @@ export function MapTooltip({ tooltip }: MapTooltipProps) {
       })}
     </Box>
   );
-}
+});

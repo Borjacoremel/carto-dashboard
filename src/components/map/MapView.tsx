@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
 import DeckGL from '@deck.gl/react';
 import { Map } from 'react-map-gl/maplibre';
 import { INITIAL_VIEW_STATE, BASEMAP_STYLE } from '../../config/carto';
@@ -7,16 +7,66 @@ import { Box } from '@mui/material';
 import { MapTooltip } from './MapTooltip';
 import { ViewportStats } from './ViewportStats';
 import type { TooltipInfo, ViewportFeature } from '../../types/map';
+import { useThrottledCallback } from '../../hooks/useThrottledCallback';
+
+const VIEW_STATE_STORAGE_KEY = 'carto-dashboard:view-state';
+const VIEWPORT_STATS_THROTTLE_MS = 500;
+
+/**
+ * Load persisted view state from localStorage
+ */
+function loadPersistedViewState(): MapViewState {
+  if (typeof window === 'undefined') return INITIAL_VIEW_STATE;
+
+  try {
+    const stored = window.localStorage.getItem(VIEW_STATE_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Merge with initial to ensure all required fields exist
+      return { ...INITIAL_VIEW_STATE, ...parsed, transitionDuration: 0 };
+    }
+  } catch {
+    // Invalid stored state
+  }
+  return INITIAL_VIEW_STATE;
+}
 
 interface MapViewProps {
   layers: Layer[];
 }
 
-export default function MapView({ layers }: MapViewProps) {
-  const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW_STATE);
+function MapViewComponent({ layers }: MapViewProps) {
+  const [viewState, setViewState] = useState<MapViewState>(loadPersistedViewState);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const [viewportFeatures, setViewportFeatures] = useState<ViewportFeature[]>([]);
   const [isLoadingFeatures, setIsLoadingFeatures] = useState(false);
+  const deckRef = useRef<any>(null);
+
+  // Persist view state (debounced)
+  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (persistTimeoutRef.current) {
+      clearTimeout(persistTimeoutRef.current);
+    }
+
+    persistTimeoutRef.current = setTimeout(() => {
+      try {
+        const { longitude, latitude, zoom, pitch, bearing } = viewState;
+        window.localStorage.setItem(
+          VIEW_STATE_STORAGE_KEY,
+          JSON.stringify({ longitude, latitude, zoom, pitch, bearing })
+        );
+      } catch {
+        // Storage unavailable
+      }
+    }, 500);
+
+    return () => {
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+      }
+    };
+  }, [viewState]);
 
   const handleHover = useCallback((info: PickingInfo) => {
     if (info.object && info.layer) {
@@ -31,13 +81,11 @@ export default function MapView({ layers }: MapViewProps) {
     }
   }, []);
 
-  const handleAfterRender = useCallback(
-    ({ deck }: { deck: any }) => {
+  // Throttled viewport feature picking for performance
+  const updateViewportFeatures = useThrottledCallback(
+    (deck: any) => {
       if (!deck) return;
 
-      setIsLoadingFeatures(true);
-
-      // Get features in the current viewport
       const features: ViewportFeature[] = [];
       const pickOptions = {
         x: 0,
@@ -66,15 +114,29 @@ export default function MapView({ layers }: MapViewProps) {
       setViewportFeatures(features);
       setIsLoadingFeatures(false);
     },
-    []
+    VIEWPORT_STATS_THROTTLE_MS
   );
+
+  const handleAfterRender = useCallback(
+    ({ deck }: { deck: any }) => {
+      if (!deck) return;
+      setIsLoadingFeatures(true);
+      updateViewportFeatures(deck);
+    },
+    [updateViewportFeatures]
+  );
+
+  const handleViewStateChange = useCallback(({ viewState }: { viewState: MapViewState }) => {
+    setViewState(viewState);
+  }, []);
 
   const deck = useMemo(
     () => (
       <DeckGL
         id="deckgl-overlay"
+        ref={deckRef}
         viewState={viewState}
-        onViewStateChange={({ viewState }) => setViewState(viewState as MapViewState)}
+        onViewStateChange={handleViewStateChange}
         controller={true}
         layers={layers}
         onHover={handleHover}
@@ -84,7 +146,7 @@ export default function MapView({ layers }: MapViewProps) {
         <Map mapStyle={BASEMAP_STYLE} reuseMaps />
       </DeckGL>
     ),
-    [viewState, layers, handleHover, handleAfterRender]
+    [viewState, layers, handleHover, handleAfterRender, handleViewStateChange]
   );
 
   return (
@@ -95,4 +157,7 @@ export default function MapView({ layers }: MapViewProps) {
     </Box>
   );
 }
-}
+
+// Memoize the component to prevent unnecessary re-renders
+const MapView = memo(MapViewComponent);
+export default MapView;

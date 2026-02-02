@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Layers from '@mui/icons-material/Layers';
@@ -12,7 +13,7 @@ interface SidebarProps {
   onToggleVisibility: (layerId: string) => void;
 }
 
-export function Sidebar({ layers, onStyleChange, onToggleVisibility }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ layers, onStyleChange, onToggleVisibility }: SidebarProps) {
   return (
     <Box
       component="aside"
@@ -142,4 +143,4 @@ export function Sidebar({ layers, onStyleChange, onToggleVisibility }: SidebarPr
       </Box>
     </Box>
   );
-}
+});

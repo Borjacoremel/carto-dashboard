@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Store from '@mui/icons-material/Store';
@@ -20,7 +20,7 @@ interface StatCardProps {
   bgColor: string;
 }
 
-function StatCard({ icon, label, value, subValue, bgColor }: StatCardProps) {
+const StatCard = memo(function StatCard({ icon, label, value, subValue, bgColor }: StatCardProps) {
   return (
     <Box
       sx={{
@@ -69,7 +69,7 @@ function StatCard({ icon, label, value, subValue, bgColor }: StatCardProps) {
       )}
     </Box>
   );
-}
+});
 
 export function formatCurrency(value: number): string {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -129,7 +129,7 @@ export function calculateStats(features: ViewportFeature[]): ViewportStatsData {
   };
 }
 
-export function ViewportStats({ features, isLoading }: ViewportStatsProps) {
+const ViewportStats = memo(function ViewportStats({ features, isLoading }: ViewportStatsProps) {
   const stats = useMemo(() => calculateStats(features), [features]);
 
   const hasData =
@@ -194,4 +194,6 @@ export function ViewportStats({ features, isLoading }: ViewportStatsProps) {
       )}
     </Box>
   );
-}
+});
+
+export { ViewportStats };

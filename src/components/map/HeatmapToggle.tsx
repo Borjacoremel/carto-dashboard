@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
@@ -8,7 +9,7 @@ interface HeatmapToggleProps {
   onToggle: (enabled: boolean) => void;
 }
 
-export function HeatmapToggle({ enabled, onToggle }: HeatmapToggleProps) {
+export const HeatmapToggle = memo(function HeatmapToggle({ enabled, onToggle }: HeatmapToggleProps) {
   return (
     <Box
       sx={{
@@ -40,4 +41,4 @@ export function HeatmapToggle({ enabled, onToggle }: HeatmapToggleProps) {
       </Box>
     </Box>
   );
-}
+});
