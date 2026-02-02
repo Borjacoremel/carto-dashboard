@@ -108,7 +108,7 @@ interface LayerLoadingBadgeProps {
 }
 
 export const LayerLoadingBadge = memo(function LayerLoadingBadge({
-  layerName,
+  layerName: _layerName,
   isLoading,
 }: LayerLoadingBadgeProps) {
   if (!isLoading) return null;

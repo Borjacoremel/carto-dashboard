@@ -76,7 +76,7 @@ describe('useLocalStorage', () => {
   it('handles complex objects', () => {
     const complexObject = { a: 1, b: { c: 'nested' }, d: [1, 2, 3] };
     const { result } = renderHook(() =>
-      useLocalStorage('test-key', { default: true })
+      useLocalStorage<Record<string, unknown>>('test-key', { default: true })
     );
 
     act(() => {

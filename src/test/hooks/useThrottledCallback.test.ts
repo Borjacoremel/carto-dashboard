@@ -119,7 +119,7 @@ describe('useRAFCallback', () => {
       return ++rafId;
     }));
 
-    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => {
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((_id: number) => {
       // Simplified mock - just track cancellation
     }));
   });

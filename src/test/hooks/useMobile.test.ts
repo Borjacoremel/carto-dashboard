@@ -23,7 +23,7 @@ describe('useIsMobile', () => {
       },
       dispatchEvent: vi.fn(),
     }));
-    window.matchMedia = mockMatchMedia;
+    window.matchMedia = mockMatchMedia as unknown as typeof window.matchMedia;
   });
 
   afterEach(() => {
