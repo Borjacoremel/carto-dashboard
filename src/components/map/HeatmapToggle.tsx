@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
 import Whatshot from '@mui/icons-material/Whatshot';
+import { usePrefetchHeatmap } from '../../hooks/useCartoQuery';
 
 interface HeatmapToggleProps {
   enabled: boolean;
@@ -10,8 +11,18 @@ interface HeatmapToggleProps {
 }
 
 export const HeatmapToggle = memo(function HeatmapToggle({ enabled, onToggle }: HeatmapToggleProps) {
+  const prefetchHeatmap = usePrefetchHeatmap();
+
+  // Prefetch heatmap data on hover for instant toggle experience
+  const handleMouseEnter = () => {
+    if (!enabled) {
+      prefetchHeatmap();
+    }
+  };
+
   return (
     <Box
+      onMouseEnter={handleMouseEnter}
       sx={{
         position: 'absolute',
         bottom: 24,

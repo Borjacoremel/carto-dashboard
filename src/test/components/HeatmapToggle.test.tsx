@@ -1,12 +1,25 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HeatmapToggle } from '../../components/map/HeatmapToggle';
 
 const theme = createTheme({ palette: { mode: 'dark' } });
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
+
 const renderWithTheme = (component: React.ReactElement) => {
-  return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>);
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>{component}</ThemeProvider>
+    </QueryClientProvider>
+  );
 };
 
 describe('HeatmapToggle', () => {

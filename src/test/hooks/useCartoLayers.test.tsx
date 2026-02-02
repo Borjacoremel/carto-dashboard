@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactNode } from 'react';
 import { useCartoLayers } from '../../hooks/useCartoLayers';
 
 // Mock the CARTO modules with proper class constructors
@@ -34,48 +36,65 @@ vi.mock('@deck.gl/aggregation-layers', () => {
   };
 });
 
-// Mock the useHeatmapWorker hook to avoid Worker not defined error
-vi.mock('../../hooks/useHeatmapWorker', () => ({
-  useHeatmapWorker: () => ({
+// Mock the useCartoQuery hook to avoid fetch calls
+vi.mock('../../hooks/useCartoQuery', () => ({
+  useHeatmapData: () => ({
     data: [],
     isLoading: false,
     error: null,
-    refetch: vi.fn(),
   }),
 }));
 
+// Create a wrapper with QueryClientProvider
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+}
+
 describe('useCartoLayers', () => {
+  const wrapper = createWrapper();
   // Helper to find layer by id (layer order: sociodemographics first, retail-stores second for rendering)
   const findLayer = (configs: any[], id: string) => configs.find((c: any) => c.id === id);
 
   describe('Initial State', () => {
     it('should return two layer configs on initialization', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(result.current.layerConfigs).toHaveLength(2);
     });
 
     it('should have sociodemographics as first layer (renders at bottom)', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(result.current.layerConfigs[0].id).toBe('sociodemographics');
     });
 
     it('should have retail-stores as second layer (renders on top for hover priority)', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(result.current.layerConfigs[1].id).toBe('retail-stores');
     });
 
     it('should return deck layers for visible layers', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       // Both layers are visible by default
       expect(result.current.deckLayers).toHaveLength(2);
     });
 
     it('should have correct initial values for retail-stores layer', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const retailLayer = findLayer(result.current.layerConfigs, 'retail-stores');
       expect(retailLayer.name).toBe('Retail Stores');
@@ -91,7 +110,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should have correct initial values for sociodemographics layer', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const demoLayer = findLayer(result.current.layerConfigs, 'sociodemographics');
       expect(demoLayer.name).toBe('US Demographics');
@@ -107,14 +126,14 @@ describe('useCartoLayers', () => {
     });
 
     it('should have correct tableName for retail-stores', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const retailLayer = findLayer(result.current.layerConfigs, 'retail-stores');
       expect(retailLayer.tableName).toBe('carto-demo-data.demo_tables.retail_stores');
     });
 
     it('should have correct tableName for sociodemographics (tileset)', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const demoLayer = findLayer(result.current.layerConfigs, 'sociodemographics');
       expect(demoLayer.tableName).toBe(
@@ -125,7 +144,7 @@ describe('useCartoLayers', () => {
 
   describe('toggleLayerVisibility', () => {
     it('should toggle layer visibility from true to false', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(findLayer(result.current.layerConfigs, 'retail-stores').style.visible).toBe(true);
 
@@ -137,7 +156,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should toggle layer visibility from false to true', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.toggleLayerVisibility('retail-stores');
@@ -153,7 +172,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should filter out hidden layers from deckLayers', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(result.current.deckLayers).toHaveLength(2);
 
@@ -165,7 +184,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should not affect other layers when toggling one', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const originalDemoLayerVisibility = findLayer(
         result.current.layerConfigs,
@@ -182,7 +201,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should do nothing for non-existent layer id', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const originalRetailVisible = findLayer(
         result.current.layerConfigs,
@@ -206,7 +225,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should return empty deckLayers when all layers are hidden', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.toggleLayerVisibility('retail-stores');
@@ -219,7 +238,7 @@ describe('useCartoLayers', () => {
 
   describe('updateLayerStyle', () => {
     it('should update fillColor', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { fillColor: '#00FF00' });
@@ -231,7 +250,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update opacity', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { opacity: 0.5 });
@@ -241,7 +260,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update outlineColor', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { outlineColor: '#000000' });
@@ -253,7 +272,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update outlineWidth', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { outlineWidth: 3 });
@@ -263,7 +282,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update radius for point layer', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { radius: 12 });
@@ -273,7 +292,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update colorByColumn', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { colorByColumn: 'revenue' });
@@ -285,7 +304,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should set colorByColumn to null', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       // First set it to a value
       act(() => {
@@ -307,7 +326,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update visible state directly', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { visible: false });
@@ -317,7 +336,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update multiple style properties at once', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', {
@@ -336,7 +355,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should not affect other layers when updating one layer', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const originalDemoLayerStyle = {
         ...findLayer(result.current.layerConfigs, 'sociodemographics').style,
@@ -352,7 +371,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should preserve unmodified style properties', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const originalOutlineColor = findLayer(
         result.current.layerConfigs,
@@ -369,7 +388,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should do nothing for non-existent layer id', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const originalFillColor = findLayer(
         result.current.layerConfigs,
@@ -386,7 +405,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should update sociodemographics layer style', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       act(() => {
         result.current.updateLayerStyle('sociodemographics', {
@@ -403,7 +422,7 @@ describe('useCartoLayers', () => {
 
   describe('deckLayers generation', () => {
     it('should regenerate deckLayers when style changes', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const initialLayers = result.current.deckLayers;
 
@@ -416,7 +435,7 @@ describe('useCartoLayers', () => {
     });
 
     it('should maintain layer order in deckLayers (sociodemographics first, retail-stores on top)', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       const layerIds = result.current.deckLayers.map((l: any) => l.id);
       expect(layerIds).toEqual(['sociodemographics', 'retail-stores']);
@@ -425,7 +444,7 @@ describe('useCartoLayers', () => {
 
   describe('Return value stability', () => {
     it('should return all expected properties', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(result.current).toHaveProperty('deckLayers');
       expect(result.current).toHaveProperty('layerConfigs');
@@ -434,14 +453,14 @@ describe('useCartoLayers', () => {
     });
 
     it('should return functions for toggleLayerVisibility and updateLayerStyle', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(typeof result.current.toggleLayerVisibility).toBe('function');
       expect(typeof result.current.updateLayerStyle).toBe('function');
     });
 
     it('should return arrays for deckLayers and layerConfigs', () => {
-      const { result } = renderHook(() => useCartoLayers());
+      const { result } = renderHook(() => useCartoLayers(), { wrapper: createWrapper() });
 
       expect(Array.isArray(result.current.deckLayers)).toBe(true);
       expect(Array.isArray(result.current.layerConfigs)).toBe(true);

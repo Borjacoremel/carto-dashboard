@@ -4,7 +4,7 @@ import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import { Layer, type Color } from '@deck.gl/core';
 import { CARTO_CONFIG } from '../config/carto';
 import { type LayerConfig, type HeatmapPoint, type LayerStyle } from '../types/map';
-import { useHeatmapWorker } from './useHeatmapWorker';
+import { useHeatmapData } from './useCartoQuery';
 
 // Storage keys for persistence
 const STORAGE_KEYS = {
@@ -118,12 +118,12 @@ export function useCartoLayers() {
   const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(loadPersistedHeatmap);
   const savedDemographicsOpacity = useRef<number | null>(null);
 
-  // Use Web Worker for heatmap data processing
+  // Use TanStack Query for cached heatmap data fetching
   const {
-    data: heatmapData,
+    data: heatmapData = [],
     isLoading: heatmapLoading,
     error: heatmapError,
-  } = useHeatmapWorker(heatmapEnabled);
+  } = useHeatmapData(heatmapEnabled);
 
   // Persist layer styles to localStorage (debounced)
   const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
