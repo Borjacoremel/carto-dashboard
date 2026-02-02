@@ -21,7 +21,7 @@ export const Sidebar = memo(function Sidebar({ layers, onStyleChange, onToggleVi
         width: 320,
         bgcolor: 'background.paper',
         borderRight: '1px solid rgba(255,255,255,0.1)',
-        display: 'flex',
+        display: { xs: 'none', md: 'flex' },
         flexDirection: 'column',
         overflow: 'hidden',
       }}

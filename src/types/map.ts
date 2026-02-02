@@ -34,4 +34,3 @@ export interface ViewportFeature {
   layerId: string;
   properties: Record<string, unknown>;
 }
-}

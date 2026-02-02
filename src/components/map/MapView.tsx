@@ -6,11 +6,12 @@ import type { MapViewState, Layer, PickingInfo } from '@deck.gl/core';
 import { Box } from '@mui/material';
 import { MapTooltip } from './MapTooltip';
 import { ViewportStats } from './ViewportStats';
+import { MapLoadingOverlay } from './MapLoadingOverlay';
+import { MobileStatsToggle } from '../mobile/MobileStatsToggle';
 import type { TooltipInfo, ViewportFeature } from '../../types/map';
-import { useThrottledCallback } from '../../hooks/useThrottledCallback';
 
 const VIEW_STATE_STORAGE_KEY = 'carto-dashboard:view-state';
-const VIEWPORT_STATS_THROTTLE_MS = 500;
+const VIEWPORT_QUERY_DEBOUNCE_MS = 300;
 
 /**
  * Load persisted view state from localStorage
@@ -33,14 +34,18 @@ function loadPersistedViewState(): MapViewState {
 
 interface MapViewProps {
   layers: Layer[];
+  isHeatmapLoading?: boolean;
 }
 
-function MapViewComponent({ layers }: MapViewProps) {
+function MapViewComponent({ layers, isHeatmapLoading = false }: MapViewProps) {
   const [viewState, setViewState] = useState<MapViewState>(loadPersistedViewState);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const [viewportFeatures, setViewportFeatures] = useState<ViewportFeature[]>([]);
   const [isLoadingFeatures, setIsLoadingFeatures] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
   const deckRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const queryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persist view state (debounced)
   const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,6 +73,91 @@ function MapViewComponent({ layers }: MapViewProps) {
     };
   }, [viewState]);
 
+  // Query viewport features using grid-based sampling
+  const queryViewportFeatures = useCallback(() => {
+    if (!deckRef.current?.deck || !containerRef.current) return;
+
+    setIsLoadingFeatures(true);
+
+    try {
+      const deck = deckRef.current.deck;
+      const { width, height } = containerRef.current.getBoundingClientRect();
+
+      // Sample points across the viewport for picking (8x8 grid)
+      const samplePoints: [number, number][] = [];
+      const gridSize = 8;
+
+      for (let x = 0; x < gridSize; x++) {
+        for (let y = 0; y < gridSize; y++) {
+          samplePoints.push([
+            (x + 0.5) * (width / gridSize),
+            (y + 0.5) * (height / gridSize),
+          ]);
+        }
+      }
+
+      // Pick objects at sample points
+      const pickedObjects = samplePoints
+        .map(([x, y]) => {
+          try {
+            return deck.pickObject({ x, y, radius: 50 });
+          } catch {
+            return null;
+          }
+        })
+        .filter((info: any): info is any => info !== null && info.object !== undefined);
+
+      // Deduplicate by creating a unique key for each feature
+      const uniqueFeatures: Record<string, ViewportFeature> = {};
+
+      pickedObjects.forEach((info: any) => {
+        // CARTO VectorTileLayer stores properties directly on the object
+        const props = info.object?.properties || info.object;
+        if (!props || typeof props !== 'object') return;
+
+        // Create a unique key based on layer and feature id
+        const featureId =
+          props.store_id ||
+          props.geoid ||
+          props.blockgroup ||
+          props.id ||
+          `${info.layer?.id}-${info.index}`;
+        const layerId = info.layer?.id || 'unknown';
+        const key = `${layerId}-${featureId}`;
+
+        if (!uniqueFeatures[key]) {
+          uniqueFeatures[key] = {
+            layerId,
+            properties: info.object?.properties || props,
+          };
+        }
+      });
+
+      setViewportFeatures(Object.values(uniqueFeatures));
+    } catch (error) {
+      console.error('Error querying viewport features:', error);
+    } finally {
+      setIsLoadingFeatures(false);
+    }
+  }, []);
+
+  // Debounced viewport query on view state or layers change
+  useEffect(() => {
+    if (!isMapReady) return;
+
+    if (queryTimeoutRef.current) {
+      clearTimeout(queryTimeoutRef.current);
+    }
+
+    queryTimeoutRef.current = setTimeout(queryViewportFeatures, VIEWPORT_QUERY_DEBOUNCE_MS);
+
+    return () => {
+      if (queryTimeoutRef.current) {
+        clearTimeout(queryTimeoutRef.current);
+      }
+    };
+  }, [viewState.longitude, viewState.latitude, viewState.zoom, layers, isMapReady, queryViewportFeatures]);
+
   const handleHover = useCallback((info: PickingInfo) => {
     if (info.object && info.layer) {
       setTooltip({
@@ -81,53 +171,23 @@ function MapViewComponent({ layers }: MapViewProps) {
     }
   }, []);
 
-  // Throttled viewport feature picking for performance
-  const updateViewportFeatures = useThrottledCallback(
-    (deck: any) => {
-      if (!deck) return;
+  const handleMapLoad = useCallback(() => {
+    setIsMapReady(true);
+    // Initial query after map loads
+    setTimeout(queryViewportFeatures, 500);
+  }, [queryViewportFeatures]);
 
-      const features: ViewportFeature[] = [];
-      const pickOptions = {
-        x: 0,
-        y: 0,
-        width: deck.width,
-        height: deck.height,
-      };
-
-      try {
-        const pickedObjects = deck.pickObjects(pickOptions);
-        for (const picked of pickedObjects) {
-          if (picked.object && picked.layer) {
-            const obj = picked.object as { properties?: Record<string, unknown> };
-            if (obj.properties) {
-              features.push({
-                layerId: picked.layer.id,
-                properties: obj.properties,
-              });
-            }
-          }
-        }
-      } catch {
-        // Picking may fail during transitions
-      }
-
-      setViewportFeatures(features);
-      setIsLoadingFeatures(false);
-    },
-    VIEWPORT_STATS_THROTTLE_MS
-  );
-
-  const handleAfterRender = useCallback(
-    ({ deck }: { deck: any }) => {
-      if (!deck) return;
-      setIsLoadingFeatures(true);
-      updateViewportFeatures(deck);
-    },
-    [updateViewportFeatures]
-  );
-
-  const handleViewStateChange = useCallback(({ viewState }: { viewState: MapViewState }) => {
-    setViewState(viewState);
+  const handleViewStateChange = useCallback((params: any) => {
+    const newViewState = params.viewState;
+    if (newViewState) {
+      setViewState({
+        longitude: newViewState.longitude,
+        latitude: newViewState.latitude,
+        zoom: newViewState.zoom,
+        pitch: newViewState.pitch ?? 0,
+        bearing: newViewState.bearing ?? 0,
+      });
+    }
   }, []);
 
   const deck = useMemo(
@@ -140,20 +200,27 @@ function MapViewComponent({ layers }: MapViewProps) {
         controller={true}
         layers={layers}
         onHover={handleHover}
-        onAfterRender={handleAfterRender}
         getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'grab')}
       >
-        <Map mapStyle={BASEMAP_STYLE} reuseMaps />
+        <Map mapStyle={BASEMAP_STYLE} reuseMaps onLoad={handleMapLoad} />
       </DeckGL>
     ),
-    [viewState, layers, handleHover, handleAfterRender, handleViewStateChange]
+    [viewState, layers, handleHover, handleViewStateChange, handleMapLoad]
   );
 
   return (
-    <Box sx={{ position: 'relative', height: '100%', width: '100%', bgcolor: '#000' }}>
+    <Box
+      ref={containerRef}
+      sx={{ position: 'relative', height: '100%', width: '100%', bgcolor: '#000' }}
+    >
       {deck}
       {tooltip && <MapTooltip tooltip={tooltip} />}
+      {/* Desktop viewport stats */}
       <ViewportStats features={viewportFeatures} isLoading={isLoadingFeatures} />
+      {/* Mobile viewport stats toggle */}
+      <MobileStatsToggle features={viewportFeatures} isLoading={isLoadingFeatures} />
+      <MapLoadingOverlay isLoading={!isMapReady} message="Loading map..." />
+      <MapLoadingOverlay isLoading={isHeatmapLoading} variant="inline" />
     </Box>
   );
 }
