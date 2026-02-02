@@ -42,7 +42,7 @@ export function ColorPicker({ color, onChange, label }: ColorPickerProps) {
           sx={{
             display: 'block',
             mb: 0.5,
-            color: 'text.secondary',
+            color: 'rgba(255,255,255,0.7)',
             fontWeight: 500,
             textTransform: 'uppercase',
             fontSize: '0.625rem',

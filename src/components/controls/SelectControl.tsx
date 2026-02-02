@@ -28,7 +28,7 @@ export function SelectControl({
         sx={{
           mb: 0.75,
           display: 'block',
-          color: 'text.secondary',
+          color: 'rgba(255,255,255,0.7)',
           fontWeight: 500,
           textTransform: 'uppercase',
           fontSize: '0.625rem',
@@ -44,8 +44,17 @@ export function SelectControl({
           displayEmpty
           sx={{
             bgcolor: 'rgba(255,255,255,0.05)',
+            color: 'rgba(255,255,255,0.9)',
+            border: '1px solid rgba(255,255,255,0.2)',
             '&:hover': {
               bgcolor: 'rgba(255,255,255,0.1)',
+              borderColor: 'rgba(255,255,255,0.3)',
+            },
+            '& .MuiOutlinedInput-notchedOutline': {
+              border: 'none',
+            },
+            '& .MuiSelect-icon': {
+              color: 'rgba(255,255,255,0.7)',
             },
           }}
         >

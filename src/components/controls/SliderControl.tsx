@@ -60,7 +60,7 @@ export function SliderControl({
         <Typography
           variant="caption"
           sx={{
-            color: 'text.secondary',
+            color: 'rgba(255,255,255,0.7)',
             fontWeight: 500,
             textTransform: 'uppercase',
             fontSize: '0.625rem',
@@ -73,7 +73,7 @@ export function SliderControl({
           variant="body2"
           sx={{
             fontFamily: 'monospace',
-            color: 'primary.main',
+            color: 'rgba(255,255,255,0.9)',
             fontWeight: 500,
           }}
         >
@@ -87,6 +87,21 @@ export function SliderControl({
         step={step}
         onChange={(_, v) => handleChange(v as number)}
         size="small"
+        sx={{
+          color: 'rgba(255,255,255,0.9)',
+          '& .MuiSlider-track': {
+            bgcolor: 'rgba(255,255,255,0.9)',
+          },
+          '& .MuiSlider-rail': {
+            bgcolor: 'rgba(255,255,255,0.2)',
+          },
+          '& .MuiSlider-thumb': {
+            bgcolor: 'rgba(255,255,255,0.9)',
+            '&:hover, &.Mui-focusVisible': {
+              boxShadow: '0 0 0 8px rgba(255,255,255,0.16)',
+            },
+          },
+        }}
       />
     </Box>
   );

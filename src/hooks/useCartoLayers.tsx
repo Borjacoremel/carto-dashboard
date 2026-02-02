@@ -50,7 +50,6 @@ const INITIAL_LAYERS: LayerConfig[] = [
       outlineWidth: 1,
       radius: 6,
       colorByColumn: null,
-      colorByOptions: ['revenue'],
       visible: true,
       opacity: 0.9,
     },
@@ -194,6 +193,7 @@ export function useCartoLayers() {
 
   /**
    * Color logic: Implements quantile-based coloring for business data visualization.
+   * Uses different thresholds based on the data column being visualized.
    */
   const getFillColor = useCallback((f: any, config: LayerConfig): Color => {
     const { colorByColumn, fillColor, opacity } = config.style;
@@ -206,15 +206,35 @@ export function useCartoLayers() {
     
     // Viridis color ramp for high-contrast data visualization
     const colorRamp: Color[] = [
-      [253, 231, 37, alpha],
-      [94, 201, 98, alpha],
-      [33, 145, 140, alpha],
-      [59, 82, 139, alpha],
-      [68, 1, 84, alpha],
+      [253, 231, 37, alpha],  // Yellow (low)
+      [94, 201, 98, alpha],   // Light green
+      [33, 145, 140, alpha],  // Teal
+      [59, 82, 139, alpha],   // Blue
+      [68, 1, 84, alpha],     // Purple (high)
     ];
 
-    // Simplified population thresholds
-    const thresholds = [1000, 2500, 5000, 10000];
+    // Define thresholds based on the column type
+    let thresholds: number[];
+    
+    switch (colorByColumn) {
+      case 'revenue':
+        // Revenue thresholds (assuming values in thousands/millions)
+        thresholds = [50000, 100000, 250000, 500000];
+        break;
+      case 'median_income':
+        // Income thresholds
+        thresholds = [30000, 50000, 75000, 100000];
+        break;
+      case 'total_pop':
+      case 'population':
+        // Population thresholds
+        thresholds = [1000, 2500, 5000, 10000];
+        break;
+      default:
+        // Generic thresholds for unknown columns
+        thresholds = [100, 500, 1000, 5000];
+    }
+
     let idx = 0;
     thresholds.forEach((t, i) => {
       if (value >= t) idx = i + 1;

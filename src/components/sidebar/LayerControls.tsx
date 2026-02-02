@@ -36,7 +36,7 @@ export const LayerControls = memo(function LayerControls({
         borderRadius: 1,
         p: 1.5,
         border: '1px solid',
-        borderColor: style.visible ? 'primary.main' : 'transparent',
+        borderColor: style.visible ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
         opacity: style.visible ? 1 : 0.6,
         transition: 'all 0.2s',
       }}
