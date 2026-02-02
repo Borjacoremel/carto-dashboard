@@ -147,9 +147,21 @@ export function useCartoLayers() {
     );
   };
 
+  /**
+   * UI Actions: Updates layer style properties from the Sidebar controls.
+   */
+  const updateLayerStyle = (id: string, updates: Partial<LayerConfig['style']>) => {
+    setLayerConfigs((prev) =>
+      prev.map((l) =>
+        l.id === id ? { ...l, style: { ...l.style, ...updates } } : l
+      )
+    );
+  };
+
   return {
     deckLayers,
     layerConfigs,
     toggleLayerVisibility,
+    updateLayerStyle,
   };
 }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { theme } from './theme';
 import { useCartoLayers } from './hooks/useCartoLayers';
