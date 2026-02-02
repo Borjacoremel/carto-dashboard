@@ -29,3 +29,9 @@ export interface TooltipInfo {
   object: Record<string, unknown> | null;
   layerId: string | null;
 }
+
+export interface ViewportFeature {
+  layerId: string;
+  properties: Record<string, unknown>;
+}
+}
