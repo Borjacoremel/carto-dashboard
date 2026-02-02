@@ -179,7 +179,7 @@ vi.stubGlobal('localStorage', createLocalStorageMock());
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone [<repository-url>](https://github.com/Borjacoremel/carto-dashboard)
 cd carto-dashboard
 
 # Install dependencies
