@@ -46,6 +46,8 @@ export const LayerControls = memo(function LayerControls({
         <Box
           component="button"
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          aria-label={expanded ? `Collapse ${layer.name} controls` : `Expand ${layer.name} controls`}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -69,7 +71,12 @@ export const LayerControls = memo(function LayerControls({
             <ExpandMore sx={{ fontSize: 18, color: 'text.secondary' }} />
           )}
         </Box>
-        <IconButton size="small" onClick={onToggleVisibility} sx={{ ml: 1 }}>
+        <IconButton
+          size="small"
+          onClick={onToggleVisibility}
+          sx={{ ml: 1 }}
+          aria-label={style.visible ? `Hide ${layer.name} layer` : `Show ${layer.name} layer`}
+        >
           {style.visible ? (
             <Visibility sx={{ fontSize: 18 }} />
           ) : (

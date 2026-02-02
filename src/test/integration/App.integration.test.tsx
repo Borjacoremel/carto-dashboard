@@ -171,8 +171,8 @@ describe('App Integration Tests', () => {
     it('expands layer controls when accordion is clicked', async () => {
       render(<App />, { wrapper: createWrapper() });
 
-      // Click on a layer name to expand/collapse
-      const retailButton = screen.getByRole('button', { name: /Retail Stores/i });
+      // Click on the expand/collapse button (not the visibility toggle)
+      const retailButton = screen.getByRole('button', { name: /Collapse Retail Stores controls/i });
       fireEvent.click(retailButton);
 
       // The accordion should toggle (look for controls becoming visible/hidden)

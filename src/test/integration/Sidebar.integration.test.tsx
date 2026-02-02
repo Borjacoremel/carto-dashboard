@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../theme';
 import { Sidebar } from '../../components/sidebar/Sidebar';
-import type { LayerConfig } from '../../types/map';
+import type { LayerConfig, LayerStyle } from '../../types/map';
 
 // Mock layer configs for testing
 const createMockLayers = (): LayerConfig[] => [
@@ -22,6 +22,11 @@ const createMockLayers = (): LayerConfig[] => [
       radius: 6,
       colorByColumn: null,
     },
+    columns: [
+      { name: 'revenue', type: 'number' },
+      { name: 'size_m2', type: 'number' },
+      { name: 'storetype', type: 'string' },
+    ],
     colorByOptions: ['revenue', 'size_m2', 'storetype'],
   },
   {
@@ -35,8 +40,14 @@ const createMockLayers = (): LayerConfig[] => [
       outlineWidth: 0.5,
       opacity: 0.6,
       visible: true,
+      radius: 0,
       colorByColumn: 'total_pop',
     },
+    columns: [
+      { name: 'total_pop', type: 'number' },
+      { name: 'median_income', type: 'number' },
+      { name: 'total_pop_sum', type: 'number' },
+    ],
     colorByOptions: ['total_pop', 'median_income', 'total_pop_sum'],
   },
 ];
@@ -59,13 +70,13 @@ function createWrapper() {
 
 describe('Sidebar Integration Tests', () => {
   let mockLayers: LayerConfig[];
-  let onStyleChange: ReturnType<typeof vi.fn>;
-  let onToggleVisibility: ReturnType<typeof vi.fn>;
+  let onStyleChange: ReturnType<typeof vi.fn<(layerId: string, updates: Partial<LayerStyle>) => void>>;
+  let onToggleVisibility: ReturnType<typeof vi.fn<(layerId: string) => void>>;
 
   beforeEach(() => {
     mockLayers = createMockLayers();
-    onStyleChange = vi.fn();
-    onToggleVisibility = vi.fn();
+    onStyleChange = vi.fn<(layerId: string, updates: Partial<LayerStyle>) => void>();
+    onToggleVisibility = vi.fn<(layerId: string) => void>();
   });
 
   it('renders all layer controls', () => {
