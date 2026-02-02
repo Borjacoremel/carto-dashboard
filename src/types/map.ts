@@ -22,3 +22,10 @@ export interface HeatmapPoint {
   coordinates: [number, number];
   weight: number;
 }
+
+export interface TooltipInfo {
+  x: number;
+  y: number;
+  object: Record<string, unknown> | null;
+  layerId: string | null;
+}

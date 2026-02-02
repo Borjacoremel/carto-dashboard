@@ -45,6 +45,9 @@ vi.mock('../../hooks/useHeatmapWorker', () => ({
 }));
 
 describe('useCartoLayers', () => {
+  // Helper to find layer by id (layer order: sociodemographics first, retail-stores second for rendering)
+  const findLayer = (configs: any[], id: string) => configs.find((c: any) => c.id === id);
+
   describe('Initial State', () => {
     it('should return two layer configs on initialization', () => {
       const { result } = renderHook(() => useCartoLayers());
@@ -52,16 +55,16 @@ describe('useCartoLayers', () => {
       expect(result.current.layerConfigs).toHaveLength(2);
     });
 
-    it('should have retail-stores as first layer', () => {
+    it('should have sociodemographics as first layer (renders at bottom)', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      expect(result.current.layerConfigs[0].id).toBe('retail-stores');
+      expect(result.current.layerConfigs[0].id).toBe('sociodemographics');
     });
 
-    it('should have sociodemographics as second layer', () => {
+    it('should have retail-stores as second layer (renders on top for hover priority)', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      expect(result.current.layerConfigs[1].id).toBe('sociodemographics');
+      expect(result.current.layerConfigs[1].id).toBe('retail-stores');
     });
 
     it('should return deck layers for visible layers', () => {
@@ -74,7 +77,7 @@ describe('useCartoLayers', () => {
     it('should have correct initial values for retail-stores layer', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      const retailLayer = result.current.layerConfigs[0];
+      const retailLayer = findLayer(result.current.layerConfigs, 'retail-stores');
       expect(retailLayer.name).toBe('Retail Stores');
       expect(retailLayer.type).toBe('point');
       expect(retailLayer.style.fillColor).toBe('#FF6B6B');
@@ -90,7 +93,7 @@ describe('useCartoLayers', () => {
     it('should have correct initial values for sociodemographics layer', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      const demoLayer = result.current.layerConfigs[1];
+      const demoLayer = findLayer(result.current.layerConfigs, 'sociodemographics');
       expect(demoLayer.name).toBe('US Demographics');
       expect(demoLayer.type).toBe('polygon');
       expect(demoLayer.style.fillColor).toBe('#4ECDC4');
@@ -106,15 +109,15 @@ describe('useCartoLayers', () => {
     it('should have correct tableName for retail-stores', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      expect(result.current.layerConfigs[0].tableName).toBe(
-        'carto-demo-data.demo_tables.retail_stores'
-      );
+      const retailLayer = findLayer(result.current.layerConfigs, 'retail-stores');
+      expect(retailLayer.tableName).toBe('carto-demo-data.demo_tables.retail_stores');
     });
 
     it('should have correct tableName for sociodemographics (tileset)', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      expect(result.current.layerConfigs[1].tableName).toBe(
+      const demoLayer = findLayer(result.current.layerConfigs, 'sociodemographics');
+      expect(demoLayer.tableName).toBe(
         'carto-demo-data.demo_tilesets.sociodemographics_usa_blockgroup'
       );
     });
@@ -124,13 +127,13 @@ describe('useCartoLayers', () => {
     it('should toggle layer visibility from true to false', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      expect(result.current.layerConfigs[0].style.visible).toBe(true);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.visible).toBe(true);
 
       act(() => {
         result.current.toggleLayerVisibility('retail-stores');
       });
 
-      expect(result.current.layerConfigs[0].style.visible).toBe(false);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.visible).toBe(false);
     });
 
     it('should toggle layer visibility from false to true', () => {
@@ -140,13 +143,13 @@ describe('useCartoLayers', () => {
         result.current.toggleLayerVisibility('retail-stores');
       });
 
-      expect(result.current.layerConfigs[0].style.visible).toBe(false);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.visible).toBe(false);
 
       act(() => {
         result.current.toggleLayerVisibility('retail-stores');
       });
 
-      expect(result.current.layerConfigs[0].style.visible).toBe(true);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.visible).toBe(true);
     });
 
     it('should filter out hidden layers from deckLayers', () => {
@@ -164,26 +167,42 @@ describe('useCartoLayers', () => {
     it('should not affect other layers when toggling one', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      const originalSecondLayerVisibility = result.current.layerConfigs[1].style.visible;
+      const originalDemoLayerVisibility = findLayer(
+        result.current.layerConfigs,
+        'sociodemographics'
+      ).style.visible;
 
       act(() => {
         result.current.toggleLayerVisibility('retail-stores');
       });
 
-      expect(result.current.layerConfigs[1].style.visible).toBe(originalSecondLayerVisibility);
+      expect(findLayer(result.current.layerConfigs, 'sociodemographics').style.visible).toBe(
+        originalDemoLayerVisibility
+      );
     });
 
     it('should do nothing for non-existent layer id', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      const originalConfigs = [...result.current.layerConfigs];
+      const originalRetailVisible = findLayer(
+        result.current.layerConfigs,
+        'retail-stores'
+      ).style.visible;
+      const originalDemoVisible = findLayer(
+        result.current.layerConfigs,
+        'sociodemographics'
+      ).style.visible;
 
       act(() => {
         result.current.toggleLayerVisibility('non-existent-layer');
       });
 
-      expect(result.current.layerConfigs[0].style.visible).toBe(originalConfigs[0].style.visible);
-      expect(result.current.layerConfigs[1].style.visible).toBe(originalConfigs[1].style.visible);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.visible).toBe(
+        originalRetailVisible
+      );
+      expect(findLayer(result.current.layerConfigs, 'sociodemographics').style.visible).toBe(
+        originalDemoVisible
+      );
     });
 
     it('should return empty deckLayers when all layers are hidden', () => {
@@ -206,7 +225,9 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { fillColor: '#00FF00' });
       });
 
-      expect(result.current.layerConfigs[0].style.fillColor).toBe('#00FF00');
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.fillColor).toBe(
+        '#00FF00'
+      );
     });
 
     it('should update opacity', () => {
@@ -216,7 +237,7 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { opacity: 0.5 });
       });
 
-      expect(result.current.layerConfigs[0].style.opacity).toBe(0.5);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.opacity).toBe(0.5);
     });
 
     it('should update outlineColor', () => {
@@ -226,7 +247,9 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { outlineColor: '#000000' });
       });
 
-      expect(result.current.layerConfigs[0].style.outlineColor).toBe('#000000');
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.outlineColor).toBe(
+        '#000000'
+      );
     });
 
     it('should update outlineWidth', () => {
@@ -236,7 +259,7 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { outlineWidth: 3 });
       });
 
-      expect(result.current.layerConfigs[0].style.outlineWidth).toBe(3);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.outlineWidth).toBe(3);
     });
 
     it('should update radius for point layer', () => {
@@ -246,7 +269,7 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { radius: 12 });
       });
 
-      expect(result.current.layerConfigs[0].style.radius).toBe(12);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.radius).toBe(12);
     });
 
     it('should update colorByColumn', () => {
@@ -256,7 +279,9 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { colorByColumn: 'revenue' });
       });
 
-      expect(result.current.layerConfigs[0].style.colorByColumn).toBe('revenue');
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.colorByColumn).toBe(
+        'revenue'
+      );
     });
 
     it('should set colorByColumn to null', () => {
@@ -267,14 +292,18 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { colorByColumn: 'revenue' });
       });
 
-      expect(result.current.layerConfigs[0].style.colorByColumn).toBe('revenue');
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.colorByColumn).toBe(
+        'revenue'
+      );
 
       // Then set it back to null
       act(() => {
         result.current.updateLayerStyle('retail-stores', { colorByColumn: null });
       });
 
-      expect(result.current.layerConfigs[0].style.colorByColumn).toBeNull();
+      expect(
+        findLayer(result.current.layerConfigs, 'retail-stores').style.colorByColumn
+      ).toBeNull();
     });
 
     it('should update visible state directly', () => {
@@ -284,7 +313,7 @@ describe('useCartoLayers', () => {
         result.current.updateLayerStyle('retail-stores', { visible: false });
       });
 
-      expect(result.current.layerConfigs[0].style.visible).toBe(false);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.visible).toBe(false);
     });
 
     it('should update multiple style properties at once', () => {
@@ -299,49 +328,61 @@ describe('useCartoLayers', () => {
         });
       });
 
-      expect(result.current.layerConfigs[0].style.fillColor).toBe('#FF0000');
-      expect(result.current.layerConfigs[0].style.opacity).toBe(0.7);
-      expect(result.current.layerConfigs[0].style.radius).toBe(10);
-      expect(result.current.layerConfigs[0].style.outlineWidth).toBe(2);
+      const retailLayer = findLayer(result.current.layerConfigs, 'retail-stores');
+      expect(retailLayer.style.fillColor).toBe('#FF0000');
+      expect(retailLayer.style.opacity).toBe(0.7);
+      expect(retailLayer.style.radius).toBe(10);
+      expect(retailLayer.style.outlineWidth).toBe(2);
     });
 
     it('should not affect other layers when updating one layer', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      const originalSecondLayerStyle = { ...result.current.layerConfigs[1].style };
+      const originalDemoLayerStyle = {
+        ...findLayer(result.current.layerConfigs, 'sociodemographics').style,
+      };
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { fillColor: '#FF0000' });
       });
 
-      expect(result.current.layerConfigs[1].style.fillColor).toBe(
-        originalSecondLayerStyle.fillColor
-      );
-      expect(result.current.layerConfigs[1].style.opacity).toBe(originalSecondLayerStyle.opacity);
+      const demoLayer = findLayer(result.current.layerConfigs, 'sociodemographics');
+      expect(demoLayer.style.fillColor).toBe(originalDemoLayerStyle.fillColor);
+      expect(demoLayer.style.opacity).toBe(originalDemoLayerStyle.opacity);
     });
 
     it('should preserve unmodified style properties', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      const originalOutlineColor = result.current.layerConfigs[0].style.outlineColor;
+      const originalOutlineColor = findLayer(
+        result.current.layerConfigs,
+        'retail-stores'
+      ).style.outlineColor;
 
       act(() => {
         result.current.updateLayerStyle('retail-stores', { fillColor: '#FF0000' });
       });
 
-      expect(result.current.layerConfigs[0].style.outlineColor).toBe(originalOutlineColor);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.outlineColor).toBe(
+        originalOutlineColor
+      );
     });
 
     it('should do nothing for non-existent layer id', () => {
       const { result } = renderHook(() => useCartoLayers());
 
-      const originalFillColor = result.current.layerConfigs[0].style.fillColor;
+      const originalFillColor = findLayer(
+        result.current.layerConfigs,
+        'retail-stores'
+      ).style.fillColor;
 
       act(() => {
         result.current.updateLayerStyle('non-existent-layer', { fillColor: '#FF0000' });
       });
 
-      expect(result.current.layerConfigs[0].style.fillColor).toBe(originalFillColor);
+      expect(findLayer(result.current.layerConfigs, 'retail-stores').style.fillColor).toBe(
+        originalFillColor
+      );
     });
 
     it('should update sociodemographics layer style', () => {
@@ -354,8 +395,9 @@ describe('useCartoLayers', () => {
         });
       });
 
-      expect(result.current.layerConfigs[1].style.fillColor).toBe('#AABBCC');
-      expect(result.current.layerConfigs[1].style.opacity).toBe(0.8);
+      const demoLayer = findLayer(result.current.layerConfigs, 'sociodemographics');
+      expect(demoLayer.style.fillColor).toBe('#AABBCC');
+      expect(demoLayer.style.opacity).toBe(0.8);
     });
   });
 
@@ -373,11 +415,11 @@ describe('useCartoLayers', () => {
       expect(result.current.deckLayers).not.toBe(initialLayers);
     });
 
-    it('should maintain layer order in deckLayers', () => {
+    it('should maintain layer order in deckLayers (sociodemographics first, retail-stores on top)', () => {
       const { result } = renderHook(() => useCartoLayers());
 
       const layerIds = result.current.deckLayers.map((l: any) => l.id);
-      expect(layerIds).toEqual(['retail-stores', 'sociodemographics']);
+      expect(layerIds).toEqual(['sociodemographics', 'retail-stores']);
     });
   });
 

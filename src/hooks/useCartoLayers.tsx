@@ -17,23 +17,6 @@ import { useHeatmapWorker } from './useHeatmapWorker';
 
 const INITIAL_LAYERS: LayerConfig[] = [
   {
-    id: 'retail-stores',
-    name: 'Retail Stores',
-    tableName: 'carto-demo-data.demo_tables.retail_stores',
-    type: 'point',
-    style: {
-      fillColor: '#FF6B6B',
-      outlineColor: '#ffffff',
-      outlineWidth: 1,
-      radius: 6,
-      colorByColumn: null,
-      visible: true,
-      opacity: 0.9,
-    },
-    columns: [{ name: 'revenue', type: 'number' }],
-    colorByOptions: ['revenue'],
-  },
-  {
     id: 'sociodemographics',
     name: 'US Demographics',
     tableName: 'carto-demo-data.demo_tilesets.sociodemographics_usa_blockgroup',
@@ -49,6 +32,24 @@ const INITIAL_LAYERS: LayerConfig[] = [
     },
     columns: [{ name: 'total_pop', type: 'number' }],
     colorByOptions: ['total_pop', 'median_income'],
+  },
+  {
+    id: 'retail-stores',
+    name: 'Retail Stores',
+    tableName: 'carto-demo-data.demo_tables.retail_stores',
+    type: 'point',
+    style: {
+      fillColor: '#FF6B6B',
+      outlineColor: '#ffffff',
+      outlineWidth: 1,
+      radius: 6,
+      colorByColumn: null,
+      colorByOptions: ['revenue'],
+      visible: true,
+      opacity: 0.9,
+    },
+    columns: [{ name: 'revenue', type: 'number' }],
+    colorByOptions: ['revenue'],
   },
 ];
 
